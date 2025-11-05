@@ -16,4 +16,7 @@ pandas==2.1.0
 PyPDF2==3.1.1
 Pillow==10.0.0
 
+
 Library.db will autogenerate on first start
+
+PDF and CSV exports are broken currently.
