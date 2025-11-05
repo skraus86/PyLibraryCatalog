@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyLibraryCatalog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body.dark-mode {
+      background-color: #121212;
+      color: #f1f1f1;
+    }
+    body.dark-mode .card {
+      background-color: #1e1e1e;
+      color: #f1f1f1;
+    }
+    body.dark-mode .navbar, body.dark-mode .dropdown-menu {
+      background-color: #1e1e1e;
+      color: #f1f1f1;
+    }
+  </style>
+</head>
+<body class="{{ 'dark-mode' if session.get('dark_mode') else '' }}">
+
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">PyLibraryCatalog</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      {% if current_user %}
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('change_password') }}">Change Password</a>
+        </li>
+        {% if not session.get('mfa_setup') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('setup_mfa') }}">Setup MFA</a>
+        </li>
+        {% endif %}
+        {% if current_user == 'admin' %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('user_management') }}">User Management</a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('export_csv') }}">Export CSV</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('export_pdf') }}">Export PDF</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <button id="darkModeBtn" class="btn btn-outline-secondary btn-sm me-2">Toggle Dark Mode</button>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('logout') }}">Logout ({{ current_user }})</a>
+        </li>
+      </ul>
+      {% else %}
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+        </li>
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // Apply dark mode if session indicates
+    if ({{ 'true' if session.get('dark_mode') else 'false' }}) {
+        document.body.classList.add("dark-mode");
+    }
+
+    const darkBtn = document.getElementById("darkModeBtn");
+    darkBtn?.addEventListener("click", () => {
+        const dark = document.body.classList.toggle("dark-mode");
+        fetch("{{ url_for('set_dark_mode') }}", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({dark})
+        });
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Pending User Approvals</h3>
+<form method="POST">
+  <table class="table table-striped">
+    <thead><tr><th>User</th><th>Status</th><th>Approve</th></tr></thead>
+    <tbody>
+      {% for id, username, approved in users %}
+      <tr>
+        <td>{{ username }}</td>
+        <td>{% if approved %}<span class="text-success">Approved</span>{% else %}<span class="text-danger">Pending</span>{% endif %}</td>
+        <td>{% if not approved %}<input type="checkbox" name="approve" value="{{ id }}">{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button class="btn btn-primary">Approve Selected</button>
+</form>
+{% endblock %}

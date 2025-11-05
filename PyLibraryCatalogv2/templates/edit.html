@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="col-md-6 mx-auto">
+    <h3>Edit Book</h3>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label>Title</label>
+            <input type="text" name="title" class="form-control" value="{{ book['title'] }}">
+        </div>
+        <div class="mb-3">
+            <label>Authors</label>
+            <input type="text" name="authors" class="form-control" value="{{ book['authors'] }}">
+        </div>
+        <div class="mb-3">
+            <label>Publisher</label>
+            <input type="text" name="publisher" class="form-control" value="{{ book['publisher'] }}">
+        </div>
+        <div class="mb-3">
+            <label>Published Date</label>
+            <input type="text" name="publishedDate" class="form-control" value="{{ book['publishedDate'] }}">
+        </div>
+        <div class="mb-3">
+            <label>Description</label>
+            <textarea name="description" class="form-control" rows="5">{{ book['description'] }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label>Replace Cover Image</label>
+            <input type="file" name="cover_image" accept="image/*" class="form-control">
+        </div>
+        <button class="btn btn-primary">Save Changes</button>
+    </form>
+</div>
+{% endblock %}

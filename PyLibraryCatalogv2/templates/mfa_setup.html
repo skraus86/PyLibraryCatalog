@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5" style="max-width: 400px;">
+  <h2 class="mb-4 text-center">Setup MFA</h2>
+  <p>Scan this QR code with Google Authenticator or Authy:</p>
+  <img src="{{ url_for('setup_mfa') }}" alt="MFA QR Code" class="img-fluid mb-3">
+
+  <form method="POST">
+    <div class="mb-3">
+      <label class="form-label">Enter code from app</label>
+      <input type="text" class="form-control" name="token" required placeholder="6-digit code">
+    </div>
+    <button type="submit" class="btn btn-primary w-100 mb-2">Verify & Activate MFA</button>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary w-100">Cancel / Back</a>
+  </form>
+
+  <p class="mt-3 text-muted small text-center">
+    You can skip and set up MFA later, but we recommend enabling it for better security.
+  </p>
+</div>
+{% endblock %}

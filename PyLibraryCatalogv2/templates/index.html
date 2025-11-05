@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+
+  <!-- Add book manually -->
+  <form method="POST" class="mb-3 d-flex">
+    <input type="text" name="isbn" class="form-control me-2" placeholder="Enter ISBN" required>
+    <button type="submit" class="btn btn-primary">Add Book</button>
+  </form>
+
+  <!-- Camera scan -->
+  <div class="mb-3">
+    <button id="startScan" class="btn btn-outline-primary btn-sm">Scan ISBN via Camera</button>
+    <button id="exitScan" class="btn btn-outline-danger btn-sm ms-2" style="display:none;">Exit Scan</button>
+    <div id="reader" style="width:300px; margin-top:10px; display:none;"></div>
+  </div>
+
+  <!-- Search filter -->
+  <div class="mb-3">
+    <input type="text" id="searchInput" class="form-control" placeholder="Search by title, author, or publisher...">
+  </div>
+
+  <!-- View toggle -->
+  <div class="mb-3">
+    <button id="toggleView" class="btn btn-outline-primary btn-sm">Switch to List View</button>
+  </div>
+
+  <!-- Library -->
+  <div id="libraryList" class="row row-cols-1 row-cols-md-3 g-3">
+    {% for book in books %}
+      <div class="col library-item">
+        <div class="card h-100">
+          {% if book['cover_url'] %}
+            <img src="{{ url_for('static', filename='covers/' ~ book['cover_url']) }}" class="card-img-top cover-img" alt="Cover">
+          {% endif %}
+          <div class="card-body book-info">
+            <h5 class="card-title">{{ book['title'] }}</h5>
+            <p class="card-text"><strong>Authors:</strong> {{ book['authors'] }}</p>
+            <p class="card-text"><strong>Publisher:</strong> {{ book['publisher'] }}</p>
+            <p class="card-text"><strong>Published:</strong> {{ book['publishedDate'] }}</p>
+            <p class="card-text"><strong>In Library:</strong>
+              <span class="inLibraryStatus">{{ 'Yes' if book['in_library'] else 'No' }}</span>
+              <button class="btn btn-sm btn-outline-secondary toggleInLibrary" data-id="{{ book['id'] }}">Toggle</button>
+            </p>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Html5Qrcode -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+// Dark mode toggle
+document.addEventListener("DOMContentLoaded", () => {
+    if ({{ 'true' if session.get('dark_mode') else 'false' }}) {
+        document.body.classList.add("dark-mode");
+    }
+    const darkBtn = document.getElementById("darkModeBtn");
+    darkBtn?.addEventListener("click", () => {
+        const dark = document.body.classList.toggle("dark-mode");
+        fetch("{{ url_for('set_dark_mode') }}", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({dark})
+        });
+    });
+});
+
+// Toggle in-library
+document.querySelectorAll(".toggleInLibrary").forEach(btn => {
+    btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const res = await fetch(`/toggle_in_library/${id}`, {method:'POST'});
+        const data = await res.json();
+        if (data.success) {
+            const statusElem = btn.parentElement.querySelector(".inLibraryStatus");
+            statusElem.textContent = statusElem.textContent === "Yes" ? "No" : "Yes";
+        }
+    });
+});
+
+// Cover/List view toggle
+let coverView = true;
+document.getElementById("toggleView").addEventListener("click", () => {
+    const items = document.querySelectorAll(".library-item");
+    coverView = !coverView;
+    items.forEach(item => {
+        if (coverView) {
+            item.classList.remove("list-view");
+        } else {
+            item.classList.add("list-view");
+        }
+    });
+    document.getElementById("toggleView").textContent = coverView ? "Switch to List View" : "Switch to Cover View";
+});
+
+// Camera scan
+let html5QrCode = null;
+const readerDiv = document.getElementById("reader");
+const startBtn = document.getElementById("startScan");
+const exitBtn = document.getElementById("exitScan");
+
+startBtn?.addEventListener("click", () => {
+    readerDiv.style.display = "block";
+    exitBtn.style.display = "inline-block";
+    html5QrCode = new Html5Qrcode("reader");
+    Html5Qrcode.getCameras().then(cameras => {
+        if (cameras && cameras.length) {
+            const cameraId = cameras.find(cam => cam.label.toLowerCase().includes("back"))?.id || cameras[0].id;
+            html5QrCode.start(
+                cameraId,
+                { fps: 10, qrbox: 250 },
+                qrCodeMessage => {
+                    html5QrCode.stop();
+                    readerDiv.style.display = "none";
+                    exitBtn.style.display = "none";
+                    const form = document.createElement("form");
+                    form.method = "POST";
+                    form.style.display = "none";
+                    const input = document.createElement("input");
+                    input.name = "isbn";
+                    input.value = qrCodeMessage;
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
+                },
+                errorMessage => console.log("Scan error", errorMessage)
+            );
+        }
+    }).catch(err => console.error(err));
+});
+
+exitBtn?.addEventListener("click", () => {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            readerDiv.style.display = "none";
+            exitBtn.style.display = "none";
+        }).catch(err => console.error("Failed to stop scanner", err));
+    }
+});
+
+// Search filter
+const searchInput = document.getElementById("searchInput");
+searchInput?.addEventListener("input", () => {
+    const query = searchInput.value.toLowerCase();
+    const items = document.querySelectorAll(".library-item");
+    items.forEach(item => {
+        const title = item.querySelector(".card-title")?.textContent.toLowerCase() || "";
+        const authors = item.querySelector(".card-text:nth-of-type(1)")?.textContent.toLowerCase() || "";
+        const publisher = item.querySelector(".card-text:nth-of-type(2)")?.textContent.toLowerCase() || "";
+        if (title.includes(query) || authors.includes(query) || publisher.includes(query)) {
+            item.style.display = "";
+        } else {
+            item.style.display = "none";
+        }
+    });
+});
+</script>
+
+<style>
+/* List view */
+.library-item.list-view {
+    flex: 1 0 100%;
+}
+.library-item.list-view .card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+.library-item.list-view .cover-img {
+    max-width: 120px;
+    max-height: 160px;
+    margin-right: 15px;
+}
+.library-item.list-view .book-info {
+    flex: 1;
+}
+</style>
+{% endblock %}
