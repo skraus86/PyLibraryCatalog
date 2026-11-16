@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Google ISBN API Debug</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        h1 { color: #569cd6; }
+        .call { border: 1px solid #3c3c3c; margin-bottom: 15px; padding: 10px; background: #252526; }
+        .meta { color: #808080; font-size: 0.9em; }
+        .isbn { color: #ce9178; font-weight: bold; }
+        .url { color: #9cdcfe; word-break: break-all; }
+        .status-ok { color: #4ec9b0; }
+        .status-err { color: #f44747; }
+        pre { background: #1e1e1e; padding: 8px; overflow-x: auto; font-size: 0.85em; border-left: 3px solid #3c3c3c; }
+        .search-box { margin-bottom: 15px; }
+        .search-box input { padding: 6px; width: 300px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; }
+        .search-box button, a.btn { padding: 6px 12px; background: #0e639c; color: white; text-decoration: none; border: none; cursor: pointer; margin-left: 5px; }
+        .search-box button:hover, a.btn:hover { background: #1177bb; }
+        .clear-btn { float: right; background: #a1260d; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google ISBN API Debug Log</h1>
+
+    <form class="search-box" method="get">
+        <input type="text" name="isbn" placeholder="Filter by ISBN..." value="{{ search_isbn }}">
+        <button type="submit">Search</button>
+        <a class="btn clear-btn" href="{{ url_for('api_debug_clear') }}">Clear Log</a>
+    </form>
+
+    {% if calls %}
+        {% for call in calls %}
+        <div class="call">
+            <div class="meta">
+                {{ call.timestamp }} | ISBN: <span class="isbn">{{ call.isbn }}</span>
+                | Status: <span class="{{ 'status-ok' if call.status_code == 200 else 'status-err' }}">{{ call.status_code }}</span>
+            </div>
+            <div class="meta url">URL: {{ call.url }}</div>
+            <pre>{{ call.response | tojson(indent=2) }}</pre>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>No API calls recorded yet.</p>
+    {% endif %}
+</body>
+</html>
