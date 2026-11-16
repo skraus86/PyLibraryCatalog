@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import requests
 import os
 import csv
+import json
+import logging
+from logging.handlers import RotatingFileHandler
 from io import BytesIO
 from fpdf import FPDF
 import pyotp
@@ -15,6 +18,51 @@ app.secret_key = 'your_secret_key'
 DB_PATH = 'library.db'
 COVERS_DIR = 'static/covers'
 os.makedirs(COVERS_DIR, exist_ok=True)
+
+# ---------------- Logging Setup -----------------
+LOG_DIR = 'logs'
+os.makedirs(LOG_DIR, exist_ok=True)
+
+api_logger = logging.getLogger('isbn_api')
+api_logger.setLevel(logging.INFO)
+
+# Rotating file handler: 5MB per file, keep 3 backups
+file_handler = RotatingFileHandler(
+    os.path.join(LOG_DIR, 'isbn_api.log'),
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+    encoding='utf-8'
+)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+))
+api_logger.addHandler(file_handler)
+
+# In-memory storage for recent API calls (shown in debug view)
+recent_api_calls = []
+MAX_RECENT_CALLS = 50
+
+def log_api_call(isbn, request_url, response_data, status_code):
+    log_entry = {
+        'timestamp': logging.Formatter('%Y-%m-%d %H:%M:%S').formatTime(logging.getLogger().makeRecord('', 0, '', 0, '', (), None)),
+        'isbn': isbn,
+        'url': request_url,
+        'status_code': status_code,
+        'response': response_data
+    }
+    # Log to file
+    api_logger.info(json.dumps({
+        'isbn': isbn,
+        'url': request_url,
+        'status_code': status_code,
+        'response_summary': {k: v for k, v in response_data.items() if k != 'items'} if isinstance(response_data, dict) else str(response_data)[:500]
+    }, indent=2))
+
+    # Store in memory for debug view
+    recent_api_calls.append(log_entry)
+    if len(recent_api_calls) > MAX_RECENT_CALLS:
+        recent_api_calls.pop(0)
 
 # ---------------- Database -----------------
 def get_db():
@@ -103,8 +151,18 @@ def add_book():
         conn.close()
         return redirect(url_for('index'))
 
-    resp = requests.get(f'https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}')
-    data = resp.json()
+    api_url = f'https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}'
+    try:
+        resp = requests.get(api_url, timeout=10)
+        data = resp.json()
+    except Exception as e:
+        log_api_call(isbn, api_url, {"error": str(e)}, 0)
+        flash("Error connecting to Google Books API", "danger")
+        conn.close()
+        return redirect(url_for('index'))
+
+    log_api_call(isbn, api_url, data, resp.status_code)
+
     if 'items' not in data:
         flash("Book not found via ISBN", "warning")
         conn.close()
@@ -149,6 +207,26 @@ def toggle_in_library(book_id):
     conn.commit()
     conn.close()
     return jsonify({"success": True})
+
+# ---------------- API Debug View (Admin Only) -----------------
+@app.route("/api_debug")
+@login_required
+@admin_required
+def api_debug():
+    search_isbn = request.args.get('isbn', '')
+    calls = recent_api_calls
+    if search_isbn:
+        calls = [c for c in calls if search_isbn.lower() in c['isbn'].lower()]
+    return render_template("api_debug.html", calls=calls, search_isbn=search_isbn)
+
+@app.route("/api_debug/clear")
+@login_required
+@admin_required
+def api_debug_clear():
+    global recent_api_calls
+    recent_api_calls.clear()
+    flash("API debug log cleared", "success")
+    return redirect(url_for('api_debug'))
 
 # ---------------- User Auth -----------------
 @app.route("/login", methods=["GET", "POST"])
